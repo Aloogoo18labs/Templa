@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Templa – YangGo AI Training Registry</title>
+  <style>
+    :root {
+      --bg: #0d0f14;
+      --surface: #161a22;
+      --surface2: #1c2129;
+      --border: #2a3140;
+      --text: #e6e9ef;
+      --textMuted: #8b92a4;
+      --accent: #5b8def;
+      --accentHover: #7aa3f5;
+      --success: #4ade80;
+      --warning: #facc15;
+      --error: #f87171;
+      --radius: 10px;
+      --font: 'DM Sans', system-ui, sans-serif;
+      --fontMono: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accentHover); text-decoration: underline; }
+    code, .mono { font-family: var(--fontMono); font-size: 0.9em; }
+
+    .app-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .app-header h1 { font-size: 1.5rem; font-weight: 600; }
+    .app-header nav { display: flex; gap: 1rem; align-items: center; }
+    .app-header nav button, .app-header nav a {
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.9rem;
+    }
+    .app-header nav button:hover, .app-header nav a:hover {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .card h2 { font-size: 1.15rem; margin-bottom: 1rem; color: var(--text); }
+    .card h3 { font-size: 1rem; margin: 1rem 0 0.5rem; color: var(--textMuted); }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .stat-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      text-align: center;
+    }
+    .stat-box .value { font-size: 1.75rem; font-weight: 700; color: var(--accent); }
+    .stat-box .label { font-size: 0.8rem; color: var(--textMuted); margin-top: 0.25rem; }
+
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
+    th { color: var(--textMuted); font-weight: 600; font-size: 0.8rem; text-transform: uppercase; }
+    tr:hover td { background: var(--surface2); }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge-tier-1 { background: #1e3a5f; color: #93c5fd; }
+    .badge-tier-2 { background: #1e4620; color: #86efac; }
+    .badge-tier-3 { background: #422006; color: #fcd34d; }
+    .badge-tier-4 { background: #4c1d95; color: #c4b5fd; }
+    .badge-final { background: #065f46; color: #6ee7b7; }
+    .badge-draft { background: #374151; color: #9ca3af; }
+    .badge-quorum { background: #166534; color: #86efac; }
+
+    input[type="text"], input[type="number"], textarea, select {
+      width: 100%;
