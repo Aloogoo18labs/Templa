@@ -222,3 +222,115 @@
     .opacity-75 { opacity: 0.75; }
     .cursor-pointer { cursor: pointer; }
     .select-none { user-select: none; }
+    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .break-all { word-break: break-all; }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="app-header">
+    <h1>Templa</h1>
+    <p style="color: var(--textMuted); font-size: 0.9rem;">YangGo AI Training Registry – Run & attestation dashboard</p>
+    <nav>
+      <button type="button" data-tab="runs">Runs</button>
+      <button type="button" data-tab="validators">Validators</button>
+      <button type="button" data-tab="register">Register run</button>
+      <button type="button" data-tab="attest">Attest</button>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section class="stats-row" id="statsRow">
+      <div class="stat-box"><span class="value" id="statRuns">0</span><span class="label">Total runs</span></div>
+      <div class="stat-box"><span class="value" id="statValidators">0</span><span class="label">Validators</span></div>
+      <div class="stat-box"><span class="value" id="statFinalized">0</span><span class="label">Finalized</span></div>
+      <div class="stat-box"><span class="value" id="statQuorum">0</span><span class="label">Positive quorum</span></div>
+    </section>
+
+    <div class="tabs" id="tabs">
+      <button type="button" class="active" data-tab="runs">Runs</button>
+      <button type="button" data-tab="validators">Validators</button>
+      <button type="button" data-tab="register">Register run</button>
+      <button type="button" data-tab="attest">Attest</button>
+      <button type="button" data-tab="checkpoints">Checkpoints</button>
+      <button type="button" data-tab="finalize">Finalize</button>
+      <button type="button" data-tab="presets">Presets</button>
+      <button type="button" data-tab="fee">Fee</button>
+      <button type="button" data-tab="registerValidator">Register validator</button>
+      <button type="button" data-tab="quorumStats">Quorum stats</button>
+      <button type="button" data-tab="export">Export</button>
+      <button type="button" data-tab="about">About</button>
+    </div>
+
+    <div id="panelRuns" class="panel active">
+      <div class="card">
+        <h2>Training runs</h2>
+        <div class="form-group">
+          <label>Filter by tier</label>
+          <select id="filterTier">
+            <option value="">All</option>
+            <option value="1">Base (1)</option>
+            <option value="2">Mid (2)</option>
+            <option value="3">Large (3)</option>
+            <option value="4">XL (4)</option>
+          </select>
+        </div>
+        <div id="runsTableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Run ID</th>
+                <th>Tier</th>
+                <th>Epochs</th>
+                <th>Coordinator</th>
+                <th>Finalized</th>
+                <th>Attestations</th>
+                <th>Quorum</th>
+              </tr>
+            </thead>
+            <tbody id="runsTableBody"></tbody>
+          </table>
+        </div>
+        <div id="runsEmpty" class="empty-state" style="display:none;">No runs yet. Register a run from the Register tab.</div>
+      </div>
+    </div>
+
+    <div id="panelValidators" class="panel">
+      <div class="card">
+        <h2>Validators</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Address</th>
+              <th>Stake (wei)</th>
+              <th>Attested runs</th>
+            </tr>
+          </thead>
+          <tbody id="validatorsTableBody"></tbody>
+        </table>
+        <div id="validatorsEmpty" class="empty-state" style="display:none;">No validators registered.</div>
+      </div>
+    </div>
+
+    <div id="panelRegister" class="panel">
+      <div class="card">
+        <h2>Register training run</h2>
+        <p style="color: var(--textMuted); margin-bottom: 1rem;">Simulated registration (no chain). Coordinator must be whitelisted.</p>
+        <div id="registerError" class="error-msg" style="display:none;"></div>
+        <div id="registerSuccess" class="success-msg" style="display:none;"></div>
+        <div class="form-group">
+          <label>Coordinator address</label>
+          <input type="text" id="regCoordinator" placeholder="0x..." />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Model tier (1–4)</label>
+            <input type="number" id="regTier" min="1" max="4" value="1" />
+          </div>
+          <div class="form-group">
+            <label>Epoch count</label>
+            <input type="number" id="regEpochs" min="1" max="10000" value="100" />
+          </div>
+        </div>
