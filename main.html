@@ -670,3 +670,115 @@
           '<div class="run-detail-item"><span class="k">Model tier</span><div class="v">' + r.modelTier + '</div></div>' +
           '<div class="run-detail-item"><span class="k">Epoch count</span><div class="v">' + r.epochCount + '</div></div>' +
           '<div class="run-detail-item"><span class="k">Coordinator</span><div class="v address">' + r.coordinator + '</div></div>' +
+          '<div class="run-detail-item"><span class="k">Finalized</span><div class="v">' + (r.finalized ? 'Yes' : 'No') + '</div></div>' +
+          '<div class="run-detail-item"><span class="k">Attestations</span><div class="v">' + r.positiveAttestations + ' / ' + r.totalAttestations + '</div></div>' +
+          '<div class="run-detail-item"><span class="k">Positive quorum</span><div class="v">' + (posQuorum ? 'Yes' : 'No') + '</div></div>' +
+          '</div>' +
+          '<div class="run-detail-item"><span class="k">Dataset hash</span><div class="v hash">' + r.datasetHash + '</div></div>' +
+          '<div class="run-detail-item"><span class="k">Config hash</span><div class="v hash">' + r.configHash + '</div></div>';
+        document.getElementById('runDetailModal').style.display = 'block';
+      }
+
+      function renderValidators() {
+        const tbody = document.getElementById('validatorsTableBody');
+        const empty = document.getElementById('validatorsEmpty');
+        tbody.innerHTML = '';
+        if (state.validators.length === 0) {
+          empty.style.display = 'block';
+          return;
+        }
+        empty.style.display = 'none';
+        state.validators.forEach(v => {
+          const attestedCount = Object.keys(v.attested || {}).length;
+          const tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td><span class="address">' + v.address + '</span></td>' +
+            '<td>' + v.stake + '</td>' +
+            '<td>' + attestedCount + '</td>';
+          tbody.appendChild(tr);
+        });
+      }
+
+      function switchTab(tabId) {
+        const panelId = 'panel' + tabId.charAt(0).toUpperCase() + tabId.slice(1);
+        document.querySelectorAll('.tabs button').forEach(b => {
+          b.classList.toggle('active', b.dataset.tab === tabId);
+        });
+        document.querySelectorAll('.panel').forEach(p => {
+          p.classList.toggle('active', p.id === panelId);
+        });
+        document.querySelectorAll('.app-header nav button').forEach(b => {
+          if (b.dataset.tab === tabId) b.classList.add('active');
+          else b.classList.remove('active');
+        });
+        if (tabId === 'runs') renderRuns();
+        if (tabId === 'validators') renderValidators();
+        if (tabId === 'quorumStats') refreshQuorumStats();
+        if (tabId === 'fee') updateFeeDisplay();
+      }
+
+      document.querySelectorAll('.tabs button, .app-header nav button[data-tab]').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+      });
+
+      document.getElementById('filterTier').addEventListener('change', renderRuns);
+
+      document.getElementById('btnRegister').addEventListener('click', () => {
+        const coordinator = document.getElementById('regCoordinator').value.trim();
+        const modelTier = parseInt(document.getElementById('regTier').value, 10);
+        const epochCount = parseInt(document.getElementById('regEpochs').value, 10);
+        const datasetLabel = document.getElementById('regDatasetLabel').value || 'dataset-' + Date.now();
+        const configLabel = document.getElementById('regConfigLabel').value || 'config-' + Date.now();
+        const errEl = document.getElementById('registerError');
+        const okEl = document.getElementById('registerSuccess');
+        errEl.style.display = 'none';
+        okEl.style.display = 'none';
+        const result = registerRun(coordinator, modelTier, epochCount, datasetLabel, configLabel);
+        if (result.ok) {
+          okEl.textContent = 'Run registered: ' + result.runId;
+          okEl.style.display = 'block';
+          renderStats();
+          renderRuns();
+        } else {
+          errEl.textContent = result.error;
+          errEl.style.display = 'block';
+        }
+      });
+
+      document.getElementById('btnAttest').addEventListener('click', () => {
+        const validator = document.getElementById('attestValidator').value.trim();
+        const runId = document.getElementById('attestRunId').value.trim();
+        const approved = document.getElementById('attestApproved').value === 'true';
+        const errEl = document.getElementById('attestError');
+        const okEl = document.getElementById('attestSuccess');
+        errEl.style.display = 'none';
+        okEl.style.display = 'none';
+        const result = attestRun(runId, validator, approved);
+        if (result.ok) {
+          okEl.textContent = 'Attestation recorded.';
+          okEl.style.display = 'block';
+          renderStats();
+          renderRuns();
+          renderValidators();
+        } else {
+          errEl.textContent = result.error;
+          errEl.style.display = 'block';
+        }
+      });
+
+      function attachCheckpoint(runId, coordinator, label) {
+        const run = state.runs.find(r => r.runId === runId);
+        if (!run) return { ok: false, error: 'Run not found' };
+        if (run.coordinator !== coordinator) return { ok: false, error: 'Not coordinator' };
+        if (run.finalized) return { ok: false, error: 'Run already finalized' };
+        const hash = '0x' + label.split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0).toString(16).padStart(64, '0').slice(-64);
+        run.checkpoints.push(hash);
+        return { ok: true };
+      }
+
+      document.getElementById('btnAttachCheckpoint').addEventListener('click', () => {
+        const runId = document.getElementById('ckptRunId').value.trim();
+        const coordinator = document.getElementById('ckptCoordinator').value.trim();
+        const label = document.getElementById('ckptLabel').value || 'ckpt-' + Date.now();
+        const msgEl = document.getElementById('ckptMessage');
+        msgEl.style.display = 'block';
