@@ -1342,3 +1342,109 @@
         generateMockRuns,
         generateMockValidators,
         validateRunInput,
+        validateAttestationInput,
+        serializeStateForStorage,
+        loadStateFromString,
+        getRunIdsPaginated,
+        getValidatorAddresses,
+        getStakeWeiForValidator,
+        getAttestedRunIdsForValidator,
+        isRunFinalized,
+        getCheckpointHashesForRun,
+        getTierForRun,
+        getEpochCountForRun,
+        getCoordinatorForRun,
+        getRegisteredAtForRun,
+        getAttestationStatsForRun,
+        computeQuorumBpsForRun,
+        getRunIdsFinalized,
+        getRunIdsWithPositiveQuorum,
+        getCoordinatorCount,
+        getUniqueCoordinators,
+        getRunsByTierStats,
+        getEpochBucketStats,
+        getTotalCheckpointsAcrossRuns,
+        getTotalAttestationsAcrossRuns,
+        getAverageAttestationsPerRun,
+        getAveragePositiveRate
+      };
+
+      function compareRunsById(runIdA, runIdB) {
+        const a = getRunById(runIdA);
+        const b = getRunById(runIdB);
+        if (!a || !b) return null;
+        return {
+          a: runDetailForModal(a),
+          b: runDetailForModal(b),
+          older: a.registeredAt < b.registeredAt ? a.runId : b.runId,
+          moreAttestations: a.totalAttestations >= b.totalAttestations ? a.runId : b.runId
+        };
+      }
+      function getRunsNeedingMoreAttestations(minAttestations) {
+        const needed = attestationsNeededForQuorum(state.validators.length);
+        return state.runs.filter(r => r.finalized && r.totalAttestations < Math.max(needed, minAttestations || 0));
+      }
+      function getRunsReadyForPositiveQuorum() {
+        return state.runs.filter(r => {
+          if (!r.finalized || r.totalAttestations === 0) return false;
+          return (r.positiveAttestations * BPS_DENOM) >= (r.totalAttestations * QUORUM_BPS);
+        });
+      }
+      function formatWei(wei) {
+        const w = typeof wei === 'string' ? wei : String(wei);
+        if (w.length <= 18) return w + ' wei';
+        const eth = (Number(w) / 1e18).toFixed(4);
+        return eth + ' ETH';
+      }
+      function parseRunIdSequence(runId) {
+        const m = runId && runId.match(/^run_(\d+)_/);
+        return m ? parseInt(m[1], 10) : null;
+      }
+      function getRunIdsSortedBySequence() {
+        return state.runs.slice().sort((a, b) => (parseRunIdSequence(a.runId) || 0) - (parseRunIdSequence(b.runId) || 0)).map(r => r.runId);
+      }
+      function getRunIdsSortedByRegisteredAt(ascending) {
+        return state.runs.slice().sort((a, b) => ascending ? a.registeredAt - b.registeredAt : b.registeredAt - a.registeredAt).map(r => r.runId);
+      }
+      function getTopRunsByAttestations(limit) {
+        return sortRunsByAttestations(state.runs).slice(0, limit || 10).map(r => r.runId);
+      }
+      function getTierDistribution() {
+        const t = getRunsByTierStats();
+        const total = state.runs.length;
+        return { 1: total ? (t[1] / total * 100).toFixed(1) + '%' : '0%', 2: total ? (t[2] / total * 100).toFixed(1) + '%' : '0%', 3: total ? (t[3] / total * 100).toFixed(1) + '%' : '0%', 4: total ? (t[4] / total * 100).toFixed(1) + '%' : '0%' };
+      }
+      function getQuorumProgressForRun(runId) {
+        const run = getRunById(runId);
+        if (!run) return null;
+        const needed = attestationsNeededForQuorum(state.validators.length);
+        const positiveNeeded = run.totalAttestations === 0 ? 0 : Math.ceil((run.totalAttestations * QUORUM_BPS) / BPS_DENOM);
+        return { total: run.totalAttestations, needed, positive: run.positiveAttestations, positiveNeeded, hasQuorum: run.totalAttestations >= needed, hasPositiveQuorum: run.totalAttestations > 0 && run.positiveAttestations >= positiveNeeded };
+      }
+      function getAllRunIds() { return state.runs.map(r => r.runId); }
+      function getValidatorCount() { return state.validators.length; }
+      function getRunCount() { return state.runs.length; }
+      function getFirstRunId() { return state.runs.length ? state.runs[0].runId : null; }
+      function getLastRunId() { return state.runs.length ? state.runs[state.runs.length - 1].runId : null; }
+      function getRunIdAt(index) { return state.runs[index] ? state.runs[index].runId : null; }
+      function indexOfRunId(runId) { return state.runs.findIndex(r => r.runId === runId); }
+      function hasRuns() { return state.runs.length > 0; }
+      function hasValidators() { return state.validators.length > 0; }
+      function getRunAgeFormatted(runId) { const r = getRunById(runId); return r ? formatRunAge(getRunAgeSeconds(r)) : '-'; }
+      function getTierNameForRun(runId) { const r = getRunById(runId); return r ? getTierName(r.modelTier) : 'unknown'; }
+      function getFinalizedRunIds() { return state.runs.filter(r => r.finalized).map(r => r.runId); }
+      function getDraftRunIds() { return state.runs.filter(r => !r.finalized).map(r => r.runId); }
+      function getRunIdsByTier(tier) { return state.runs.filter(r => r.modelTier === tier).map(r => r.runId); }
+      function getRunIdsByCoordinatorIds(coordinator) { return getRunsByCoordinator(coordinator).map(r => r.runId); }
+      function getTotalRunsFinalized() { return state.runs.filter(r => r.finalized).length; }
+      function getTotalRunsDraft() { return state.runs.filter(r => !r.finalized).length; }
+      function getPositiveQuorumRunIds() { return state.runs.filter(r => positiveQuorumReached(r.positiveAttestations, r.totalAttestations)).map(r => r.runId); }
+
+      // One-time init: ensure fee display is correct on load
+      if (document.getElementById('feeResult')) document.getElementById('feeResult').textContent = feeForTier(1);
+    })();
+  </script>
+</body>
+</html>
+</body>
+</html>
