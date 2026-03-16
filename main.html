@@ -558,3 +558,115 @@
         if (validatorCount === 0) return false;
         return (totalAtt * BPS_DENOM) >= (validatorCount * QUORUM_BPS);
       }
+
+      function positiveQuorumReached(positive, total) {
+        if (total === 0) return false;
+        return (positive * BPS_DENOM) >= (total * QUORUM_BPS);
+      }
+
+      function registerRun(coordinator, modelTier, epochCount, datasetLabel, configLabel) {
+        if (!whitelist.has(coordinator.trim().toLowerCase())) return { ok: false, error: 'Coordinator not whitelisted' };
+        if (modelTier < 1 || modelTier > 4) return { ok: false, error: 'Model tier must be 1–4' };
+        if (epochCount < 1 || epochCount > 10000) return { ok: false, error: 'Epoch count must be 1–10000' };
+        const runId = nextRunId();
+        const run = {
+          runId,
+          datasetHash: '0x' + datasetLabel.split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0).toString(16).padStart(64, '0').slice(-64),
+          configHash: '0x' + configLabel.split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0).toString(16).padStart(64, '0').slice(-64),
+          modelTier: modelTier,
+          epochCount: epochCount,
+          coordinator: coordinator,
+          registeredAt: Date.now(),
+          finalized: false,
+          positiveAttestations: 0,
+          totalAttestations: 0,
+          checkpoints: []
+        };
+        state.runs.push(run);
+        return { ok: true, runId };
+      }
+
+      function finalizeRun(runId, coordinator) {
+        const run = state.runs.find(r => r.runId === runId);
+        if (!run) return { ok: false, error: 'Run not found' };
+        if (run.coordinator !== coordinator) return { ok: false, error: 'Not coordinator' };
+        if (run.finalized) return { ok: false, error: 'Already finalized' };
+        run.finalized = true;
+        return { ok: true };
+      }
+
+      function attestRun(runId, validatorAddress, approved) {
+        const run = state.runs.find(r => r.runId === runId);
+        if (!run) return { ok: false, error: 'Run not found' };
+        if (!run.finalized) return { ok: false, error: 'Run not finalized' };
+        let v = state.validators.find(x => x.address === validatorAddress);
+        if (!v) {
+          v = { address: validatorAddress, stake: '100000000000000000', attested: {} };
+          state.validators.push(v);
+        }
+        if (v.attested[runId]) return { ok: false, error: 'Already attested' };
+        v.attested[runId] = true;
+        run.totalAttestations++;
+        if (approved) run.positiveAttestations++;
+        return { ok: true };
+      }
+
+      function registerValidator(address, stakeWei) {
+        if (state.validators.some(v => v.address === address)) return { ok: false, error: 'Already registered' };
+        state.validators.push({ address, stake: String(stakeWei), attested: {} });
+        return { ok: true };
+      }
+
+      function getRuns(filterTier) {
+        let list = state.runs;
+        if (filterTier) list = list.filter(r => r.modelTier === parseInt(filterTier, 10));
+        return list;
+      }
+
+      function renderStats() {
+        const runs = state.runs;
+        const finalized = runs.filter(r => r.finalized).length;
+        const withQuorum = runs.filter(r => positiveQuorumReached(r.positiveAttestations, r.totalAttestations)).length;
+        document.getElementById('statRuns').textContent = runs.length;
+        document.getElementById('statValidators').textContent = state.validators.length;
+        document.getElementById('statFinalized').textContent = finalized;
+        document.getElementById('statQuorum').textContent = withQuorum;
+      }
+
+      function renderRuns() {
+        const tier = document.getElementById('filterTier').value;
+        const list = getRuns(tier || null);
+        const tbody = document.getElementById('runsTableBody');
+        const empty = document.getElementById('runsEmpty');
+        tbody.innerHTML = '';
+        if (list.length === 0) {
+          empty.style.display = 'block';
+          return;
+        }
+        empty.style.display = 'none';
+        list.forEach(r => {
+          const posQuorum = positiveQuorumReached(r.positiveAttestations, r.totalAttestations);
+          const tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td><span class="mono">' + r.runId + '</span></td>' +
+            '<td><span class="badge badge-tier-' + r.modelTier + '">' + r.modelTier + '</span></td>' +
+            '<td>' + r.epochCount + '</td>' +
+            '<td><span class="address">' + r.coordinator.slice(0, 10) + '…</span></td>' +
+            '<td>' + (r.finalized ? '<span class="badge badge-final">Finalized</span>' : '<span class="badge badge-draft">Draft</span>') + '</td>' +
+            '<td>' + r.positiveAttestations + ' / ' + r.totalAttestations + '</td>' +
+            '<td>' + (posQuorum ? '<span class="badge badge-quorum">Yes</span>' : 'No') + '</td>';
+          tr.style.cursor = 'pointer';
+          tr.addEventListener('click', () => showRunDetail(r));
+          tbody.appendChild(tr);
+        });
+      }
+
+      function showRunDetail(r) {
+        const el = document.getElementById('runDetailContent');
+        const posQuorum = positiveQuorumReached(r.positiveAttestations, r.totalAttestations);
+        el.innerHTML =
+          '<div class="run-detail-grid">' +
+          '<div class="run-detail-item"><span class="k">Run ID</span><div class="v mono">' + r.runId + '</div></div>' +
+          '<div class="run-detail-item"><span class="k">Model tier</span><div class="v">' + r.modelTier + '</div></div>' +
+          '<div class="run-detail-item"><span class="k">Epoch count</span><div class="v">' + r.epochCount + '</div></div>' +
+          '<div class="run-detail-item"><span class="k">Coordinator</span><div class="v address">' + r.coordinator + '</div></div>' +
