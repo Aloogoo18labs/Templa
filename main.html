@@ -334,3 +334,115 @@
             <input type="number" id="regEpochs" min="1" max="10000" value="100" />
           </div>
         </div>
+        <div class="form-group">
+          <label>Dataset label (for hash)</label>
+          <input type="text" id="regDatasetLabel" placeholder="my-dataset-v1" />
+        </div>
+        <div class="form-group">
+          <label>Config label (for hash)</label>
+          <input type="text" id="regConfigLabel" placeholder="config-32k" />
+        </div>
+        <button type="button" class="btn btn-primary" id="btnRegister">Register run</button>
+      </div>
+    </div>
+
+    <div id="panelAttest" class="panel">
+      <div class="card">
+        <h2>Attest run</h2>
+        <p style="color: var(--textMuted); margin-bottom: 1rem;">Validator attests a finalized run (approved / rejected).</p>
+        <div id="attestError" class="error-msg" style="display:none;"></div>
+        <div id="attestSuccess" class="success-msg" style="display:none;"></div>
+        <div class="form-group">
+          <label>Validator address</label>
+          <input type="text" id="attestValidator" placeholder="0x..." />
+        </div>
+        <div class="form-group">
+          <label>Run ID</label>
+          <input type="text" id="attestRunId" placeholder="run_1_..." />
+        </div>
+        <div class="form-group">
+          <label>Approved</label>
+          <select id="attestApproved">
+            <option value="true">Yes</option>
+            <option value="false">No</option>
+          </select>
+        </div>
+        <button type="button" class="btn btn-primary" id="btnAttest">Submit attestation</button>
+      </div>
+    </div>
+
+    <div id="panelAbout" class="panel">
+      <div class="card">
+        <h2>About Templa</h2>
+        <p>Templa is the web interface for the YangGo AI training registry. It supports:</p>
+        <ul style="margin: 1rem 0 1rem 1.5rem; color: var(--textMuted);">
+          <li>Viewing training runs (dataset hash, config hash, model tier, epochs)</li>
+          <li>Registering new runs (coordinator must be whitelisted)</li>
+          <li>Attaching checkpoints and finalizing runs</li>
+          <li>Validator attestations and quorum tracking</li>
+        </ul>
+        <p>This demo uses in-memory state. Connect to an EVM RPC and contract addresses for mainnet use.</p>
+        <p style="margin-top: 1rem;"><strong>YangGo</strong> contract: AI training software bot – datasets, model checkpoints, gradient attestations. Version 2.</p>
+        <h3 class="mt-2">Glossary</h3>
+        <dl style="margin: 0.5rem 0; color: var(--textMuted); font-size: 0.9rem;">
+          <dt><strong>Run</strong></dt>
+          <dd>A single training job: dataset hash, config hash, model tier, epoch count. Registered by a whitelisted coordinator.</dd>
+          <dt><strong>Checkpoint</strong></dt>
+          <dd>A snapshot hash attached to a run (e.g. model weights at an epoch).</dd>
+          <dt><strong>Finalized</strong></dt>
+          <dd>Run is locked; no more checkpoints; validators can attest.</dd>
+          <dt><strong>Attestation</strong></dt>
+          <dd>A validator’s vote (approved/rejected) on a finalized run.</dd>
+          <dt><strong>Quorum</strong></dt>
+          <dd>66% of validators have attested. Positive quorum: 66% of attestations are positive.</dd>
+          <dt><strong>Model tier</strong></dt>
+          <dd>1=base, 2=mid, 3=large, 4=xl. Affects fee multiplier.</dd>
+        </dl>
+        <h3 class="mt-2">FAQ</h3>
+        <p class="text-muted text-small">Who can register runs? Only addresses on the coordinator whitelist.</p>
+        <p class="text-muted text-small">Who can attest? Any registered validator (min stake 0.1 ETH in production).</p>
+        <p class="text-muted text-small">What is the fee? Base 0.01 ETH; tier 2–4 use multipliers 1.2x, 1.5x, 2x.</p>
+        <p class="text-muted text-small">Where is data stored? In this demo, in browser memory. For production, use the YangGo contract on an EVM chain.</p>
+        <h3 class="mt-2">Integration notes</h3>
+        <p class="text-muted text-small">To connect to a deployed YangGo contract: set the contract address and RPC URL in your environment. Call <code>registerRun</code>, <code>attachCheckpoint</code>, <code>finalizeRun</code> (via coordinator), and <code>attestRun</code> (via validator) with the same parameters as in this UI. Use EIP-55 addresses and 40-hex hashes for dataset/config/checkpoint. Quorum is 66% (QUORUM_BPS 6600, BPS_DENOM 10000).</p>
+        <h3 class="mt-2">API surface (demo)</h3>
+        <p class="text-muted text-small">The global <code>window.TemplaState</code> object exposes: <code>state</code>, <code>getRuns</code>, <code>getRunById</code>, <code>getGlobalStats</code>, <code>runExists</code>, <code>quorumReached</code>, <code>positiveQuorumReached</code>, <code>feeForTier</code>, <code>getTierName</code>, <code>attestationsNeededForQuorum</code>, <code>getRunTableData</code>, <code>getValidatorTableData</code>, <code>getDashboardSummary</code>, <code>exportAsJson</code>, <code>runDetailForModal</code>, <code>generateMockRuns</code>, <code>generateMockValidators</code>, <code>validateRunInput</code>, <code>validateAttestationInput</code>. Use these for automation or testing.</p>
+      </div>
+    </div>
+
+    <div id="panelCheckpoints" class="panel">
+      <div class="card">
+        <h2>Checkpoints</h2>
+        <p class="text-muted text-small mb-2">Attach checkpoint hashes to a run (coordinator only). Run must not be finalized.</p>
+        <div class="form-group">
+          <label>Run ID</label>
+          <input type="text" id="ckptRunId" placeholder="run_1_..." />
+        </div>
+        <div class="form-group">
+          <label>Coordinator address</label>
+          <input type="text" id="ckptCoordinator" placeholder="0x..." />
+        </div>
+        <div class="form-group">
+          <label>Checkpoint label (hashed)</label>
+          <input type="text" id="ckptLabel" placeholder="epoch-100" />
+        </div>
+        <button type="button" class="btn btn-secondary" id="btnAttachCheckpoint">Attach checkpoint</button>
+        <div id="ckptMessage" class="mt-2" style="display:none;"></div>
+      </div>
+    </div>
+
+    <div id="panelFinalize" class="panel">
+      <div class="card">
+        <h2>Finalize run</h2>
+        <p class="text-muted text-small mb-2">Mark a run as finalized so validators can attest. Coordinator only.</p>
+        <div class="form-group">
+          <label>Run ID</label>
+          <input type="text" id="finRunId" placeholder="run_1_..." />
+        </div>
+        <div class="form-group">
+          <label>Coordinator address</label>
+          <input type="text" id="finCoordinator" placeholder="0x..." />
+        </div>
+        <button type="button" class="btn btn-primary" id="btnFinalize">Finalize</button>
+        <div id="finMessage" class="mt-2" style="display:none;"></div>
+      </div>
