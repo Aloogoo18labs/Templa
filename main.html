@@ -782,3 +782,115 @@
         const label = document.getElementById('ckptLabel').value || 'ckpt-' + Date.now();
         const msgEl = document.getElementById('ckptMessage');
         msgEl.style.display = 'block';
+        const result = attachCheckpoint(runId, coordinator, label);
+        if (result.ok) {
+          msgEl.className = 'success-msg mt-2';
+          msgEl.textContent = 'Checkpoint attached.';
+          renderRuns();
+        } else {
+          msgEl.className = 'error-msg mt-2';
+          msgEl.textContent = result.error;
+        }
+      });
+
+      document.getElementById('btnFinalize').addEventListener('click', () => {
+        const runId = document.getElementById('finRunId').value.trim();
+        const coordinator = document.getElementById('finCoordinator').value.trim();
+        const msgEl = document.getElementById('finMessage');
+        msgEl.style.display = 'block';
+        const result = finalizeRun(runId, coordinator);
+        if (result.ok) {
+          msgEl.className = 'success-msg mt-2';
+          msgEl.textContent = 'Run finalized.';
+          renderStats();
+          renderRuns();
+        } else {
+          msgEl.className = 'error-msg mt-2';
+          msgEl.textContent = result.error;
+        }
+      });
+
+      const BASE_FEE_WEI = 10000000000000000;
+      const TIER_MUL = [10000, 12000, 15000, 20000];
+      const MUL_DENOM = 10000;
+      function feeForTier(tier) {
+        const t = Math.max(1, Math.min(4, tier));
+        return Math.floor((BASE_FEE_WEI * TIER_MUL[t - 1]) / MUL_DENOM);
+      }
+      function updateFeeDisplay() {
+        const tier = parseInt(document.getElementById('feeTier').value, 10) || 1;
+        const el = document.getElementById('feeResult');
+        if (el) el.textContent = feeForTier(tier);
+      }
+      document.getElementById('btnCalcFee').addEventListener('click', updateFeeDisplay);
+      document.getElementById('feeTier').addEventListener('change', updateFeeDisplay);
+
+      document.getElementById('btnRegisterValidator').addEventListener('click', () => {
+        const address = document.getElementById('regValAddress').value.trim();
+        const stake = document.getElementById('regValStake').value.trim();
+        const errEl = document.getElementById('regValError');
+        const okEl = document.getElementById('regValSuccess');
+        errEl.style.display = 'none';
+        okEl.style.display = 'none';
+        const minStake = '100000000000000000';
+        if (!address) { errEl.textContent = 'Address required'; errEl.style.display = 'block'; return; }
+        if (!stake || BigInt(stake) < BigInt(minStake)) { errEl.textContent = 'Min stake 0.1 ETH (100000000000000000 wei)'; errEl.style.display = 'block'; return; }
+        const result = registerValidator(address, stake);
+        if (result.ok) {
+          okEl.textContent = 'Validator registered.';
+          okEl.style.display = 'block';
+          renderStats();
+          renderValidators();
+        } else {
+          errEl.textContent = result.error;
+          errEl.style.display = 'block';
+        }
+      });
+
+      function refreshQuorumStats() {
+        const n = state.validators.length;
+        const needed = n === 0 ? 0 : Math.ceil((n * QUORUM_BPS) / BPS_DENOM);
+        const withQuorum = state.runs.filter(r => quorumReached(r.totalAttestations, n)).length;
+        const posQuorum = state.runs.filter(r => positiveQuorumReached(r.positiveAttestations, r.totalAttestations)).length;
+        const qsRuns = document.getElementById('qsRuns');
+        const qsValidators = document.getElementById('qsValidators');
+        const qsNeeded = document.getElementById('qsNeeded');
+        const qsWithQuorum = document.getElementById('qsWithQuorum');
+        const qsPositiveQuorum = document.getElementById('qsPositiveQuorum');
+        if (qsRuns) qsRuns.textContent = state.runs.length;
+        if (qsValidators) qsValidators.textContent = n;
+        if (qsNeeded) qsNeeded.textContent = needed;
+        if (qsWithQuorum) qsWithQuorum.textContent = withQuorum;
+        if (qsPositiveQuorum) qsPositiveQuorum.textContent = posQuorum;
+      }
+      document.getElementById('btnRefreshQuorum').addEventListener('click', () => { refreshQuorumStats(); });
+
+      document.getElementById('btnExport').addEventListener('click', () => {
+        let report = 'Templa – YangGo Run Report\n' + new Date().toISOString() + '\n\n';
+        report += 'Total runs: ' + state.runs.length + '\n';
+        report += 'Total validators: ' + state.validators.length + '\n\n';
+        report += '--- Runs ---\n';
+        state.runs.forEach(r => {
+          report += r.runId + ' | tier=' + r.modelTier + ' | epochs=' + r.epochCount + ' | final=' + r.finalized + ' | ' + r.positiveAttestations + '/' + r.totalAttestations + '\n';
+        });
+        report += '\n--- Validators ---\n';
+        state.validators.forEach(v => {
+          report += v.address + ' | stake=' + v.stake + ' | attested=' + Object.keys(v.attested || {}).length + '\n';
+        });
+        const blob = new Blob([report], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'templa-report-' + Date.now() + '.txt';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
+
+      registerValidator('0x9e8d7c6b5a493827160504938271605049382716', '200000000000000000');
+      registerRun('0x7f3a91c2e5b4d806f9b0c1e3d5a7f2e8c4b6a0d9', 1, 50, 'demo-ds', 'demo-cfg');
+      const r = state.runs[0];
+      if (r) {
+        r.finalized = true;
+        attestRun(r.runId, '0x9e8d7c6b5a493827160504938271605049382716', true);
+      }
+
+      renderStats();
