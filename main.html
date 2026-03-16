@@ -1118,3 +1118,115 @@
       function buildValidatorReportLines() {
         const lines = [];
         state.validators.forEach(v => {
+          lines.push(validatorSummaryText(v));
+        });
+        return lines.join('\n');
+      }
+      // -----------------------------------------------------------------------
+      // Constants and config (aligned with YangGo contract)
+      // -----------------------------------------------------------------------
+      const YANGGO_VERSION = 2;
+      const MIN_EPOCHS = 1;
+      const MAX_EPOCHS_DEFAULT = 10000;
+      const MIN_VALIDATOR_STAKE_WEI = '100000000000000000';
+      const MAX_CHECKPOINTS_PER_RUN = 256;
+      const MAX_BATCH_REGISTER = 24;
+      const MODEL_TIER_BASE = 1;
+      const MODEL_TIER_MID = 2;
+      const MODEL_TIER_LARGE = 3;
+      const MODEL_TIER_XL = 4;
+      const TIER_NAMES = ['', 'base', 'mid', 'large', 'xl'];
+      const EPOCH_BUCKETS = [
+        { max: 10, label: 'small' },
+        { max: 100, label: 'medium' },
+        { max: 500, label: 'large' },
+        { max: 1000, label: 'xlarge' },
+        { max: Infinity, label: 'mega' }
+      ];
+
+      function validateRunInput(coordinator, modelTier, epochCount) {
+        const errs = [];
+        if (!isCoordinatorWhitelisted(coordinator)) errs.push('Coordinator not whitelisted');
+        if (modelTier < 1 || modelTier > 4) errs.push('Model tier must be 1–4');
+        if (epochCount < MIN_EPOCHS || epochCount > MAX_EPOCHS_DEFAULT) errs.push('Epoch count out of range');
+        return errs;
+      }
+      function validateAttestationInput(runId, validatorAddress) {
+        const errs = [];
+        if (!runExists(runId)) errs.push('Run not found');
+        const run = getRunById(runId);
+        if (run && !run.finalized) errs.push('Run not finalized');
+        if (hasValidatorAttested(runId, validatorAddress)) errs.push('Already attested');
+        return errs;
+      }
+      function generateMockRunId(seq) {
+        return 'run_' + (seq || state.runCounter) + '_' + Date.now();
+      }
+      function generateMockHash(prefix, seed) {
+        const s = (prefix || '') + (seed || Math.random());
+        return '0x' + s.split('').reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0).toString(16).padStart(64, '0').slice(-64);
+      }
+      function generateMockRuns(count, coordinator) {
+        const coord = coordinator || state.runs[0]?.coordinator || '0x7f3a91c2e5b4d806f9b0c1e3d5a7f2e8c4b6a0d9';
+        for (let i = 0; i < count; i++) {
+          const tier = 1 + (i % 4);
+          const epochs = 10 + (i % 20) * 10;
+          const dsLabel = 'mock-ds-' + i + '-' + Date.now();
+          const cfgLabel = 'mock-cfg-' + i + '-' + Date.now();
+          registerRun(coord, tier, epochs, dsLabel, cfgLabel);
+        }
+        renderStats();
+        renderRuns();
+      }
+      function generateMockValidators(count) {
+        const baseAddr = '0x9e8d7c6b5a493827160504938271605049382716';
+        for (let i = 0; i < count; i++) {
+          const addr = baseAddr.slice(0, -2) + (i < 10 ? '0' + i : String(i).slice(-2));
+          if (!getValidatorByAddress(addr)) registerValidator(addr, '200000000000000000');
+        }
+        renderStats();
+        renderValidators();
+      }
+      function getRunTableData(filterTier, sortBy) {
+        let list = filterTier ? filterRunsByTier(state.runs, parseInt(filterTier, 10)) : state.runs.slice();
+        if (sortBy === 'time') list = sortRunsByTime(list);
+        if (sortBy === 'attestations') list = sortRunsByAttestations(list);
+        return list.map(r => ({
+          runId: r.runId,
+          tier: r.modelTier,
+          tierName: getTierName(r.modelTier),
+          epochs: r.epochCount,
+          coordinator: r.coordinator,
+          finalized: r.finalized,
+          positive: r.positiveAttestations,
+          total: r.totalAttestations,
+          quorum: quorumReached(r.totalAttestations, state.validators.length),
+          positiveQuorum: positiveQuorumReached(r.positiveAttestations, r.totalAttestations),
+          checkpointCount: (r.checkpoints || []).length,
+          ageSeconds: getRunAgeSeconds(r),
+          ageFormatted: formatRunAge(getRunAgeSeconds(r))
+        }));
+      }
+      function getValidatorTableData() {
+        return state.validators.map(v => ({
+          address: v.address,
+          stake: v.stake,
+          attestedCount: Object.keys(v.attested || {}).length
+        }));
+      }
+      function computeRunFeeWei(run) {
+        return feeForTier(run.modelTier);
+      }
+      function totalFeesIfAllPaid() {
+        return state.runs.reduce((sum, r) => sum + computeRunFeeWei(r), 0);
+      }
+      function getDashboardSummary() {
+        const stats = getGlobalStats();
+        return {
+          ...stats,
+          totalStake: String(totalStakeWei()),
+          totalFeesWei: totalFeesIfAllPaid(),
+          latestRun: getLatestRun()?.runId || null,
+          oldestRun: getOldestRun()?.runId || null
+        };
+      }
