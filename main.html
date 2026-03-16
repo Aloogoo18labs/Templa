@@ -894,3 +894,115 @@
       }
 
       renderStats();
+      renderRuns();
+      renderValidators();
+      updateFeeDisplay();
+
+      // -----------------------------------------------------------------------
+      // Helpers: model tier names, epoch bucket, run age, pagination
+      // -----------------------------------------------------------------------
+      function getTierName(tier) {
+        if (tier === 1) return 'base';
+        if (tier === 2) return 'mid';
+        if (tier === 3) return 'large';
+        if (tier === 4) return 'xl';
+        return 'unknown';
+      }
+      function getEpochBucket(epochCount) {
+        if (epochCount <= 10) return 1;
+        if (epochCount <= 100) return 2;
+        if (epochCount <= 500) return 3;
+        if (epochCount <= 1000) return 4;
+        return 5;
+      }
+      function getEpochBucketLabel(bucket) {
+        if (bucket === 1) return 'small';
+        if (bucket === 2) return 'medium';
+        if (bucket === 3) return 'large';
+        if (bucket === 4) return 'xlarge';
+        if (bucket === 5) return 'mega';
+        return 'unknown';
+      }
+      function getRunAgeSeconds(run) {
+        if (!run || !run.registeredAt) return 0;
+        return Math.floor((Date.now() - run.registeredAt) / 1000);
+      }
+      function formatRunAge(seconds) {
+        if (seconds < 60) return seconds + 's';
+        if (seconds < 3600) return Math.floor(seconds / 60) + 'm';
+        if (seconds < 86400) return Math.floor(seconds / 3600) + 'h';
+        return Math.floor(seconds / 86400) + 'd';
+      }
+      function paginateRuns(pageSize, pageIndex) {
+        const list = state.runs;
+        const start = pageIndex * pageSize;
+        if (start >= list.length) return [];
+        return list.slice(start, start + pageSize);
+      }
+      function getPageCount(pageSize) {
+        if (pageSize <= 0) return 0;
+        return Math.ceil(state.runs.length / pageSize);
+      }
+      function getRunsByCoordinator(addr) {
+        return state.runs.filter(r => r.coordinator === addr);
+      }
+      function getFinalizedRuns() {
+        return state.runs.filter(r => r.finalized);
+      }
+      function getRunsWithPositiveQuorum() {
+        return state.runs.filter(r => positiveQuorumReached(r.positiveAttestations, r.totalAttestations));
+      }
+      function attestationsNeededForQuorum(validatorCount) {
+        if (validatorCount === 0) return 0;
+        return Math.ceil((validatorCount * QUORUM_BPS) / BPS_DENOM);
+      }
+      function runExists(runId) {
+        return state.runs.some(r => r.runId === runId);
+      }
+      function getRunById(runId) {
+        return state.runs.find(r => r.runId === runId);
+      }
+      function getValidatorByAddress(addr) {
+        return state.validators.find(v => v.address === addr);
+      }
+      function hasValidatorAttested(runId, validatorAddress) {
+        const v = getValidatorByAddress(validatorAddress);
+        return v && v.attested && v.attested[runId];
+      }
+      function countCheckpoints(runId) {
+        const run = getRunById(runId);
+        return run ? (run.checkpoints || []).length : 0;
+      }
+      function getTierMultiplierBps(tier) {
+        if (tier === 1) return 10000;
+        if (tier === 2) return 12000;
+        if (tier === 3) return 15000;
+        if (tier === 4) return 20000;
+        return 10000;
+      }
+      function getGlobalStats() {
+        return {
+          totalRuns: state.runs.length,
+          totalValidators: state.validators.length,
+          finalizedCount: getFinalizedRuns().length,
+          positiveQuorumCount: getRunsWithPositiveQuorum().length,
+          quorumNeeded: attestationsNeededForQuorum(state.validators.length)
+        };
+      }
+      function runSummaryText(run) {
+        const age = formatRunAge(getRunAgeSeconds(run));
+        const quorum = positiveQuorumReached(run.positiveAttestations, run.totalAttestations) ? 'Y' : 'N';
+        return run.runId + ' | ' + getTierName(run.modelTier) + ' | ' + run.epochCount + ' ep | ' + age + ' | quorum=' + quorum;
+      }
+      function validatorSummaryText(v) {
+        const n = Object.keys(v.attested || {}).length;
+        return v.address + ' | ' + v.stake + ' wei | ' + n + ' attested';
+      }
+      function cloneRunForExport(run) {
+        return {
+          runId: run.runId,
+          modelTier: run.modelTier,
+          epochCount: run.epochCount,
+          coordinator: run.coordinator,
+          finalized: run.finalized,
+          positiveAttestations: run.positiveAttestations,
