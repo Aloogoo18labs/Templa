@@ -1230,3 +1230,115 @@
           oldestRun: getOldestRun()?.runId || null
         };
       }
+      function exportAsJson() {
+        return JSON.stringify({
+          version: YANGGO_VERSION,
+          exportedAt: new Date().toISOString(),
+          runs: state.runs.map(cloneRunForExport),
+          validators: getValidatorTableData()
+        }, null, 2);
+      }
+      function runDetailForModal(run) {
+        return {
+          runId: run.runId,
+          datasetHash: run.datasetHash,
+          configHash: run.configHash,
+          modelTier: run.modelTier,
+          tierName: getTierName(run.modelTier),
+          epochCount: run.epochCount,
+          coordinator: run.coordinator,
+          registeredAt: run.registeredAt,
+          registeredAtISO: new Date(run.registeredAt).toISOString(),
+          finalized: run.finalized,
+          positiveAttestations: run.positiveAttestations,
+          totalAttestations: run.totalAttestations,
+          checkpointCount: (run.checkpoints || []).length,
+          quorumReached: quorumReached(run.totalAttestations, state.validators.length),
+          positiveQuorumReached: positiveQuorumReached(run.positiveAttestations, run.totalAttestations),
+          ageSeconds: getRunAgeSeconds(run),
+          ageFormatted: formatRunAge(getRunAgeSeconds(run)),
+          feeWei: computeRunFeeWei(run)
+        };
+      }
+      function serializeStateForStorage() {
+        return JSON.stringify({ runs: state.runs, validators: state.validators, runCounter: state.runCounter });
+      }
+      function loadStateFromString(str) {
+        try {
+          const data = JSON.parse(str);
+          if (data.runs) { state.runs.length = 0; state.runs.push(...data.runs); }
+          if (data.validators) { state.validators.length = 0; state.validators.push(...data.validators); }
+          if (typeof data.runCounter === 'number') state.runCounter = data.runCounter;
+          renderStats(); renderRuns(); renderValidators();
+          return true;
+        } catch (e) { return false; }
+      }
+      function getRunIdsPaginated(pageSize, pageIndex) {
+        const start = pageIndex * pageSize;
+        return state.runs.slice(start, start + pageSize).map(r => r.runId);
+      }
+      function getValidatorAddresses() {
+        return state.validators.map(v => v.address);
+      }
+      function getStakeWeiForValidator(addr) {
+        const v = getValidatorByAddress(addr);
+        return v ? v.stake : '0';
+      }
+      function getAttestedRunIdsForValidator(addr) {
+        const v = getValidatorByAddress(addr);
+        return v && v.attested ? Object.keys(v.attested) : [];
+      }
+      function isRunFinalized(runId) {
+        const run = getRunById(runId);
+        return run ? run.finalized : false;
+      }
+      function getCheckpointHashesForRun(runId) {
+        const run = getRunById(runId);
+        return run && run.checkpoints ? run.checkpoints.slice() : [];
+      }
+      function getTierForRun(runId) {
+        const run = getRunById(runId);
+        return run ? run.modelTier : 0;
+      }
+      function getEpochCountForRun(runId) {
+        const run = getRunById(runId);
+        return run ? run.epochCount : 0;
+      }
+      function getCoordinatorForRun(runId) {
+        const run = getRunById(runId);
+        return run ? run.coordinator : null;
+      }
+      function getRegisteredAtForRun(runId) {
+        const run = getRunById(runId);
+        return run ? run.registeredAt : 0;
+      }
+      function getAttestationStatsForRun(runId) {
+        const run = getRunById(runId);
+        return run ? { positive: run.positiveAttestations, total: run.totalAttestations } : { positive: 0, total: 0 };
+      }
+      function computeQuorumBpsForRun(runId) {
+        const run = getRunById(runId);
+        if (!run || state.validators.length === 0) return { attestationBps: 0, positiveBps: 0 };
+        const attestationBps = Math.floor((run.totalAttestations * BPS_DENOM) / state.validators.length);
+        const positiveBps = run.totalAttestations === 0 ? 0 : Math.floor((run.positiveAttestations * BPS_DENOM) / run.totalAttestations);
+        return { attestationBps, positiveBps };
+      }
+      window.TemplaState = {
+        get state() { return state; },
+        getRuns,
+        getRunById,
+        getGlobalStats,
+        runExists,
+        quorumReached,
+        positiveQuorumReached,
+        feeForTier,
+        getTierName,
+        attestationsNeededForQuorum,
+        getRunTableData,
+        getValidatorTableData,
+        getDashboardSummary,
+        exportAsJson,
+        runDetailForModal,
+        generateMockRuns,
+        generateMockValidators,
+        validateRunInput,
